@@ -16,25 +16,25 @@ MAGIC: bytes = b'JOIN'
 MAP_FILES: dict[{str: dict[{int, str}]}] = {
     'MSCS.BIN': {
         0: None,
-        1: None,
-        2: None,
-        3: None,
-        4: None,
+        1: 'MUNCHKIN_FOREST.MSCS',
+        2: 'SLEEPING_FLOWER_GARDEN.MSCS',
+        3: 'RUKURUKU_FOREST.MSCS',
+        4: 'ROKO_LAKE.MSCS',
         5: None,
         6: None,
         7: None,
         8: None,
         9: None,
-        10: None,
-        11: None,
-        12: None,
-        13: None,
-        14: None,
-        15: None,
-        16: None,
-        17: None,
-        18: None,
-        19: None,
+        10: 'VALLEY_OF_THE_WIND.MSCS',
+        11: 'THISTLE_WINDS.MSCS',
+        12: 'EASTERN_EDGE.MSCS',
+        13: 'SCARECROW_FIELD.MSCS',
+        14: 'KIKORI_FOREST.MSCS',
+        15: 'MOUNTAIN_OF_BEASTS.MSCS',
+        16: 'EMERALD_PLAZA.MSCS',
+        17: 'EMERALD_CITY.MSCS',
+        18: 'EMERALD_CASTLE_GATE.MSCS',
+        19: 'EMERALD_CASTLE.MSCS',
         20: None,
         21: None,
         22: None,
@@ -50,7 +50,7 @@ MAP_FILES: dict[{str: dict[{int, str}]}] = {
         32: None,
         33: None,
         34: None,
-        35: 'INTRO.MSCS',
+        35: 'DORTHYS_ROOM.MSCS',
         36: None,
         37: None,
         38: None,
@@ -85,9 +85,28 @@ MAP_FILES: dict[{str: dict[{int, str}]}] = {
 
 
 @dataclasses.dataclass
-class Entry:
+class Entry:  # 40 bytes
+    """
+    Generic entry used in most (extracted) bin files
+    """
+    file_name: str  # 32 bytes
+    offset: int  # 4 bytes
+    length: int  # 4 bytes
+
+
+@dataclasses.dataclass
+class BinEntry:
+    """
+    Generic file entry used in all bin files
+    """
     offset: int
     length: int
+    mapped_name: str
+
+
+def extract_chmd():
+    # TODO
+    return
 
 
 # noinspection PyTypeChecker
@@ -99,14 +118,19 @@ def extract_bin(root_fp: str, fn: str, out_dir: str):
         fp = os.path.join(root_fp, fn)
         pass
 
-    entries: list[Entry] = []
+    entries: list[BinEntry] = []
     with open(fp, mode='rb+') as io_bin:
         if io_bin.read(len(MAGIC)) != MAGIC:
             print('Bad magic!')
             io_bin.close()
             return
         else:
-            print(f'File \"{fp}\" passed magic check')
+            print(f'File \"{fp}\" passed magic check\n')
+            pass
+
+        mapped_names: dict = None
+        if fn in MAP_FILES:
+            mapped_names = MAP_FILES[fn]
             pass
 
         entries_amnt: int = struct.unpack('<I', io_bin.read(0x4))[0]
@@ -114,15 +138,28 @@ def extract_bin(root_fp: str, fn: str, out_dir: str):
             offset: int = struct.unpack('<I', io_bin.read(0x4))[0]
             length: int = struct.unpack('<I', io_bin.read(0x4))[0]
             if offset != 0x0000 and length != 0x0000:
-                entries.append(
-                    Entry(offset, length)
-                )
-                print(f'Found file entry ({offset}, {length})')
+                name: str = None
+                if mapped_names is not None:
+                    name = mapped_names[i]
+                    pass
+
+                if name is not None:
+                    print(f'Mapped {i} to \"{name}\"')
+                    pass
+                else:
+                    name = str(i)
+                    pass
+
+                entry = BinEntry(offset, length, name)
+                entries.append(entry)
+                print(f'Found file entry ({entry.mapped_name:02}, 0x{offset:06X}, 0x{length:06X})')
                 continue
+            del name
             del length
             del offset
             continue
         del entries_amnt
+        del mapped_names
 
         print(f'\nFound {len(entries)} files\n')
 
@@ -148,23 +185,9 @@ def extract_bin(root_fp: str, fn: str, out_dir: str):
             io_bin.seek(-0x4, io.SEEK_CUR)
             is_vab = io_bin.read(0x4) == b'\x70\x42\x41\x56'
 
-            name: str = None
-            if fn in MAP_FILES:
-                if i in MAP_FILES[fn]:
-                    name = MAP_FILES[fn][i]
-                    pass
-                pass
-
-            if name is None:
-                name = str(i)
-                pass
-            else:
-                print(f'Mapped {i} to \"{name}\"')
-                pass
-
             if is_container:
                 io_bin.seek(entry.offset, io.SEEK_SET)
-                fp_header = os.path.join(out_dir, f'{name}.header')
+                fp_header = os.path.join(out_dir, f'{entry.mapped_name}.header')
 
                 if os.path.exists(fp_header):
                     mode = 'wb+'
@@ -183,7 +206,7 @@ def extract_bin(root_fp: str, fn: str, out_dir: str):
                 del fp_header
                 pass
 
-            ps = os.path.join(out_dir, name)
+            ps = os.path.join(out_dir, entry.mapped_name)
             if is_tim:
                 ps += '.tim'
                 pass
@@ -252,7 +275,7 @@ def main():
         print('No input file or directory specified!')
         return
 
-    if True:
+    if True:  # TODO
         if args.output is None:
             output = None
             pass

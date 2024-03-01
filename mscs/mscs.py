@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # Created by Master on 4/5/2023 at 6:11 PM CDT
 
-from enum import Enum
-from io import BytesIO
-
 import argparse
 import glob
 import os
+import io
 
 import decode
 import encode
@@ -34,25 +32,15 @@ MAGIC: bytes =                 b'\x00\x00\x01\x31\x00\x00\x00\x08\x01\x11\x02\x1
         b'\x21\x03\x11\x11\x11\x21\x00\x00'
 
 
-class ControlCode(Enum):
-
-    UNKNOWN_1 = b'\x01'  # 0x01 or 0x0001
-    UNKNOWN_2 = b'\x02'  # 0x02 or 0x0002
-    UNKNOWN_3 = b'\x1C'  # 0x1C or 0x1C072610?
-    UNKNOWN_4 = b'\x1F'  # 0x1F or 0x1F00000 or 0x1F072610 - 0x83261085 appended?
-    UNKNOWN_5 = b'\x24\x00'  # $
-    START_TEXT = b'\x25'  # %
-    UNKNOWN_6 = b'\x26'  # & - 0x2610 0x2611
-    END_TEXT = b'\x7D\x00'  # ,
-
-
 def read_mscs_file(fp: str):
     print(f'Reading mscs file \"{fp}\"')
 
-    bytesio_mscs: BytesIO = None
+    bytesio_mscs: io.BytesIO = None
     with open(fp, mode='rb+') as io_mscs:
-        bytesio_mscs = BytesIO(io_mscs.read())
+        bytesio_mscs = io.BytesIO(io_mscs.read())
         pass
+
+    eof: int = bytesio_mscs.seek(-1, io.SEEK_END)
 
     bytesio_mscs.seek(0x04)
     if bytesio_mscs.read(len(MAGIC)) != MAGIC:
@@ -62,14 +50,15 @@ def read_mscs_file(fp: str):
         print('Passed magic')
         pass
 
-    decode.decode(bytesio_mscs)
+    bytesio_mscs.seek(0x1232)  # TODO DEBUG REMOVE
+    decode.decode(bytesio_mscs, eof)
     return
 
 
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--input', dest='input', required=True, nargs=1, type=str)
-    # arg_parser.add_argument('--output', dest='output', required=True, nargs=1, type=str)
+    # arg_parser.add_argument('--output', dest='output', required=True, nargs=1, type=str)  # TODO
     args = arg_parser.parse_args()
 
     if os.path.exists(args.input[0]):
